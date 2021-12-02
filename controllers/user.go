@@ -22,8 +22,14 @@ type UserMail struct {
 }
 type Location struct {
 	Mail   string  `json:"mail"`
+	Lat    float64 `json:"lat"`
+	Long   float64 `json:"long"`
 	DstLat float64 `json:"dstlat"`
 	DstLng float64 `json:"dstlng"`
+}
+
+type Message struct {
+	Message string `json:"message"`
 }
 
 func CreateUser(w http.ResponseWriter, r *http.Request) {
@@ -42,9 +48,6 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userDetails.Id = primitive.NewObjectID()
-	coord := U.Generatelatlong()
-	userDetails.Lat = coord[0]
-	userDetails.Long = coord[1]
 	client.Database("eltrocab").Collection("user").InsertOne(ctx, userDetails)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -99,6 +102,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	}
 	tkn := tokenString
 	r.Header.Add("Authorization", tkn)
+	data["token"] = tkn
 	result, err := client.Database("eltrocab").Collection("user").UpdateOne(
 		ctx,
 		bson.M{"mail": credentials.Mail},
@@ -106,6 +110,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 			{"$set", bson.D{{"token", tokenString}}},
 		},
 	)
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -180,7 +185,8 @@ func BookRide(w http.ResponseWriter, r *http.Request) {
 	request.DriverConfirmation = "pending"
 	request.DstLat = location.DstLat
 	request.DstLng = location.DstLng
-
+	request.Lat = location.Lat
+	request.Long = location.Long
 	check, err := client.Database("eltrocab").Collection("request").Find(ctx, bson.M{"mail": credentials.Mail})
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -270,11 +276,16 @@ func RideStatus(w http.ResponseWriter, r *http.Request) {
 		rides.Fare = arr[1]
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
+		fmt.Println(rides)
 		uj, err := json.Marshal(rides)
 		if err != nil {
 			log.Fatal(err)
 		}
 		fmt.Fprintf(w, "%s\n", uj)
+	} else if data.DriverConfirmation == "cancel" {
+		fmt.Fprintf(w, "Your booking is cancelled, please book again\n")
+	} else {
+		fmt.Fprintf(w, "Your booking is in pending, please wait\n")
 	}
 
 }
@@ -328,4 +339,73 @@ func UserLogout(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 	fmt.Println(result)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	var message Message
+	message.Message = "You logged out"
+	uj, err := json.Marshal(message)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(w, "%s\n", uj)
+}
+
+func UserCancelRide(w http.ResponseWriter, r *http.Request) {
+	auth := r.Header.Get("Authorization")
+	if auth == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	tokenStr := strings.ReplaceAll(auth, "Bearer ", "")
+	claims := &Claims{}
+	tkn, err := jwt.ParseWithClaims(tokenStr, claims,
+		func(t *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if !tkn.Valid {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	mail := U.Decode(tokenStr)
+	var usermail UserMail
+	json.NewDecoder(r.Body).Decode(&usermail)
+	fmt.Println(usermail.Mail)
+	fmt.Println(mail)
+	if usermail.Mail != mail {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	client, err := U.Session()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	defer client.Disconnect(ctx)
+	client.Database("eltrocab").Collection("request").UpdateOne(
+		ctx,
+		bson.M{"mail": usermail.Mail},
+		bson.D{
+			{"$set", bson.D{{"customerconfirmation", "cancel"}}},
+		},
+	)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	var message Message
+	message.Message = "You Cancelled the ride"
+	uj, err := json.Marshal(message)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(w, "%s\n", uj)
 }

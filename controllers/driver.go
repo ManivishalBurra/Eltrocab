@@ -40,6 +40,10 @@ type Bookings struct {
 	Fare     float64 `json:"fare in Rs"`
 }
 
+type Token struct {
+	Token string `json:"token"`
+}
+
 type Claims struct {
 	Mail string `json:"mail"`
 	jwt.StandardClaims
@@ -61,9 +65,6 @@ func CreateDriver(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	driverDetails.Id = primitive.NewObjectID()
-	coord := U.Generatelatlong()
-	driverDetails.Lat = coord[0]
-	driverDetails.Long = coord[1]
 	client.Database("eltrocab").Collection("driver").InsertOne(ctx, driverDetails)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -125,7 +126,16 @@ func LoginDriver(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 	fmt.Printf("updated %v doc\n", result.ModifiedCount)
-	fmt.Fprintf(w, "successfully loged in!!, token registered")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	var tkn Token
+	tkn.Token = tokenString
+	uj, err := json.Marshal(tkn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(w, "%s\n", uj)
 }
 
 func FetchRequest(w http.ResponseWriter, r *http.Request) {
@@ -255,6 +265,16 @@ func DriverConfirm(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 	fmt.Println(result)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	var message Message
+	message.Message = "customer is wating!! ride booked"
+	uj, err := json.Marshal(message)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(w, "%s\n", uj)
 }
 
 func DriverLogout(w http.ResponseWriter, r *http.Request) {
@@ -305,5 +325,77 @@ func DriverLogout(w http.ResponseWriter, r *http.Request) {
 			{"$set", bson.D{{"token", ""}}},
 		},
 	)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
 	fmt.Println(result)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	var message Message
+	message.Message = "You Logged out"
+	uj, err := json.Marshal(message)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(w, "%s\n", uj)
+}
+
+func DriverCancelRide(w http.ResponseWriter, r *http.Request) {
+	auth := r.Header.Get("Authorization")
+	if auth == "" {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	tokenStr := strings.ReplaceAll(auth, "Bearer ", "")
+	claims := &Claims{}
+	tkn, err := jwt.ParseWithClaims(tokenStr, claims,
+		func(t *jwt.Token) (interface{}, error) {
+			return jwtKey, nil
+		})
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	if !tkn.Valid {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	mail := U.Decode(tokenStr)
+	var usermail Driverconf
+	json.NewDecoder(r.Body).Decode(&usermail)
+	fmt.Println(usermail.Mail)
+	fmt.Println(mail)
+	if usermail.Mail != mail {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	client, err := U.Session()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	defer client.Disconnect(ctx)
+	client.Database("eltrocab").Collection("request").UpdateOne(
+		ctx,
+		bson.M{"mail": usermail.UserMail},
+		bson.D{
+			{"$set", bson.D{{"driverconfirmation", "cancel"}}},
+		},
+	)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	var message Message
+	message.Message = "Your ride is cancelled"
+	uj, err := json.Marshal(message)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Fprintf(w, "%s\n", uj)
 }
