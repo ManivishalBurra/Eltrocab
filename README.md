@@ -6,7 +6,7 @@ Eltrocab is RestApi it can be used to book cab.
   
   1. Install Go and set gopath.
   2. Open Terminal and paste this command git clone https://github.com/ManivishalBurra/Eltrocab.git
-  3. cd eltrcab/ 
+  3. cd eltrocab/ 
   4. go build
   5. eltrocab.exe
 
