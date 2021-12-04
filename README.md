@@ -17,3 +17,4 @@ Eltrocab is RestApi it can be used to book cab.
   3. {{BASE_URL}}- localhost:8080
   4. {{userToken}}- absds.jfdf.kgjfdhg
   5. {{driverToken}}- absds.jfdf.kgjfdhg
+  6. POSTMAN collection and environment are available in the repository here.
