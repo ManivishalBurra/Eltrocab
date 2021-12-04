@@ -4,8 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	C "github.com/ManivishalBurra/Eltrocab/controllers"
 	"github.com/gorilla/mux"
-	C "github.com/manivishalburra/Eltrocab/controllers"
 )
 
 func main() {

@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ManivishalBurra/Eltrocab/models"
+	U "github.com/ManivishalBurra/Eltrocab/utils"
 	"github.com/dgrijalva/jwt-go"
-	U "github.com/manivishalburra/Eltrocab/Utils"
-	"github.com/manivishalburra/Eltrocab/models"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
