@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
-	C "github.com/manivishalburra/eltrocab/controllers"
+	C "github.com/manivishalburra/Eltrocab/controllers"
 )
 
 func main() {
