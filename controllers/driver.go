@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	U "github.com/manivishalburra/eltrocab/Utils"
-	"github.com/manivishalburra/eltrocab/models"
+	U "github.com/manivishalburra/Eltrocab/Utils"
+	"github.com/manivishalburra/Eltrocab/models"
 	"github.com/mitchellh/mapstructure"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"

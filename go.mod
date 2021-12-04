@@ -1,4 +1,4 @@
-module github.com/manivishalburra/eltrocab
+module github.com/manivishalburra/Eltrocab
 
 go 1.17
 
